@@ -21,6 +21,7 @@ const (
 type ContainerSupervisor struct {
 	CntID 	string 			 // ContainerID
 	CntName string			 // sanatized name of container
+	Container docker.Container
 	Com 	chan interface{} // Channel to communicate with goroutine
 	cli 	*docker.Client
 	qChan 	qtypes.QChan
@@ -28,6 +29,18 @@ type ContainerSupervisor struct {
 
 func (cs ContainerSupervisor) Run() {
 	log.Printf("[II] Start listener for: '%s' [%s]", cs.CntName, cs.CntID)
+	// TODO: That is not realy straight forward...
+	filter := map[string][]string{
+		"id": []string{cs.CntID},
+	}
+	df := docker.ListContainersOptions{
+		Filters: filter,
+	}
+	cnt, _ := cs.cli.ListContainers(df)
+	if len(cnt) != 1 {
+		log.Printf("[EE] Could not found excatly one container with id '%s'", cs.CntID)
+		return
+	}
 	errChannel := make(chan error, 1)
 	statsChannel := make(chan *docker.Stats)
 
@@ -59,7 +72,10 @@ func (cs ContainerSupervisor) Run() {
 			}
 			qm := qtypes.NewQMsg("collector", "docker-stats")
 			qm.Msg = "Send Metrics of "+cs.CntName
-			qm.Data = stats
+			qm.Data = qtypes.ContainerStats {
+				Stats: stats,
+				Container: cnt[0],
+			}
 			cs.qChan.Data.Send(qm)
 		}
 	}
@@ -126,6 +142,7 @@ func (p *Plugin) Run() {
 
 func (p *Plugin) StartSupervisor(qm qtypes.QMsg) {
 	event := qm.Data.(events.Message)
+
 	//p.Log("info", fmt.Sprintf("Let's go: container %s started!", event.Actor.Attributes["name"]))
 	s := ContainerSupervisor{
 		CntID: event.Actor.ID,
@@ -134,7 +151,6 @@ func (p *Plugin) StartSupervisor(qm qtypes.QMsg) {
 		cli: p.cli,
 		qChan: p.QChan,
 	}
-	_ = s
 	p.sMap[event.Actor.ID] = s
 	go s.Run()
 }

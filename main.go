@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/zpatrick/go-config"
+
 	"github.com/qnib/qframe-types"
 	"github.com/qnib/qframe-collector-docker-stats/lib"
 	"github.com/qnib/qframe-collector-docker-events/lib"
@@ -50,8 +51,15 @@ func main() {
 		case msg := <-dc.Read:
 			qm := msg.(qtypes.QMsg)
 			if qm.Source == "docker-stats" {
-				fmt.Printf("DATA #### Received: %s\n", qm.Msg)
-				break
+				switch qm.Data.(type) {
+				case qtypes.ContainerStats:
+					cntStats := qm.Data.(qtypes.ContainerStats)
+					cs := qtypes.NewCpuStats(cntStats.Stats)
+					fmt.Printf("%v\n", cs)
+				default:
+					fmt.Printf("DATA #### Received: %s\n", qm.Msg)
+					break
+				}
 			} else {
 				fmt.Printf("DATA # Received [%s]: %s\n", qm.Source, qm.Msg)
 				continue
