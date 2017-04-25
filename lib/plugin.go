@@ -5,7 +5,6 @@ import (
 	"log"
 	"github.com/zpatrick/go-config"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/docker/docker/api/types/events"
 	"github.com/qnib/qframe-types"
 	"github.com/pkg/errors"
 )
@@ -119,38 +118,43 @@ func (p *Plugin) Run() {
 	for {
 		select {
 		case msg := <-bc.Read:
-			qm := msg.(qtypes.QMsg)
-			switch qm.Data.(type){
-			case events.Message:
-				event := qm.Data.(events.Message)
-				switch event.Type {
-				case "container":
-					//p.Log("info", fmt.Sprintf("Received events.Message from back-channel... %s", event.Action))
-					switch event.Action {
-					case "start":
-						p.StartSupervisor(qm)
-					case "die":
-						//p.Log("info", fmt.Sprintf("Try to stop supervisor for container %s [ID:%s]!", event.Actor.Attributes["name"], event.Actor.ID))
-						p.sMap[event.Actor.ID].Com <- event.Action
+			switch msg.(type) {
+			case qtypes.QMsg:
+				qm := msg.(qtypes.QMsg)
+				switch qm.Data.(type){
+				case qtypes.ContainerEvent:
+					ce := qm.Data.(qtypes.ContainerEvent)
+					// TODO: exec_* also includes the command - needs startswith()
+					if ce.Event.Type == "container" && (ce.Event.Action == "exec_create" || ce.Event.Action == "exec_start") {
+						continue
+					}
+					p.Log("info", fmt.Sprintf("Received qtypes.ContainerEvent from back-channel: %s.%s", ce.Event.Type, ce.Event.Action))
+					switch ce.Event.Type {
+					case "container":
+						switch ce.Event.Action {
+						case "start":
+							p.StartSupervisor(qm)
+						case "die":
+							p.sMap[ce.Event.Actor.ID].Com <- ce.Event.Action
+						}
 					}
 				}
 			}
-
 		}
 	}
 }
 
 func (p *Plugin) StartSupervisor(qm qtypes.QMsg) {
-	event := qm.Data.(events.Message)
+	ce := qm.Data.(qtypes.ContainerEvent)
 
 	//p.Log("info", fmt.Sprintf("Let's go: container %s started!", event.Actor.Attributes["name"]))
 	s := ContainerSupervisor{
-		CntID: event.Actor.ID,
-		CntName: event.Actor.Attributes["name"],
+		CntID: ce.Event.Actor.ID,
+		CntName: ce.Event.Actor.Attributes["name"],
 		Com: make(chan interface{}),
 		cli: p.cli,
 		qChan: p.QChan,
 	}
-	p.sMap[event.Actor.ID] = s
+	p.sMap[ce.Event.Actor.ID] = s
 	go s.Run()
 }
