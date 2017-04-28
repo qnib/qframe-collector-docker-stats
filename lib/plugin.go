@@ -3,6 +3,7 @@ package qframe_collector_docker_stats
 import (
 	"fmt"
 	"log"
+	"strings"
 	"github.com/zpatrick/go-config"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/qnib/qframe-types"
@@ -125,7 +126,7 @@ func (p *Plugin) Run() {
 				case qtypes.ContainerEvent:
 					ce := qm.Data.(qtypes.ContainerEvent)
 					// TODO: exec_* also includes the command - needs startswith()
-					if ce.Event.Type == "container" && (ce.Event.Action == "exec_create" || ce.Event.Action == "exec_start") {
+					if ce.Event.Type == "container" && (strings.HasPrefix(ce.Event.Action, "exec_create") || strings.HasPrefix(ce.Event.Action, "exec_start")) {
 						continue
 					}
 					p.Log("info", fmt.Sprintf("Received qtypes.ContainerEvent from back-channel: %s.%s", ce.Event.Type, ce.Event.Action))
