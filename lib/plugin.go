@@ -115,10 +115,10 @@ func (p *Plugin) Run() {
 
 	// List of current containers
 	p.Log("info", fmt.Sprintf("Currently running containers: %d", info.ContainersRunning))
-	bc := p.QChan.Back.Join()
+	dc := p.QChan.Data.Join()
 	for {
 		select {
-		case msg := <-bc.Read:
+		case msg := <-dc.Read:
 			switch msg.(type) {
 			case qtypes.QMsg:
 				qm := msg.(qtypes.QMsg)
