@@ -3,15 +3,15 @@ package qframe_collector_docker_stats
 import (
 	"fmt"
 	"log"
+	"strings"
 	"github.com/zpatrick/go-config"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/docker/docker/api/types/events"
 	"github.com/qnib/qframe-types"
 	"github.com/pkg/errors"
 )
 
 const (
-	version = "0.0.2"
+	version = "0.0.5"
 	pluginTyp = "collector"
 )
 
@@ -115,42 +115,45 @@ func (p *Plugin) Run() {
 
 	// List of current containers
 	p.Log("info", fmt.Sprintf("Currently running containers: %d", info.ContainersRunning))
-	bc := p.QChan.Back.Join()
+	dc := p.QChan.Data.Join()
 	for {
 		select {
-		case msg := <-bc.Read:
-			qm := msg.(qtypes.QMsg)
-			switch qm.Data.(type){
-			case events.Message:
-				event := qm.Data.(events.Message)
-				switch event.Type {
-				case "container":
-					//p.Log("info", fmt.Sprintf("Received events.Message from back-channel... %s", event.Action))
-					switch event.Action {
-					case "start":
-						p.StartSupervisor(qm)
-					case "die":
-						//p.Log("info", fmt.Sprintf("Try to stop supervisor for container %s [ID:%s]!", event.Actor.Attributes["name"], event.Actor.ID))
-						p.sMap[event.Actor.ID].Com <- event.Action
+		case msg := <-dc.Read:
+			switch msg.(type) {
+			case qtypes.QMsg:
+				qm := msg.(qtypes.QMsg)
+				switch qm.Data.(type){
+				case qtypes.ContainerEvent:
+					ce := qm.Data.(qtypes.ContainerEvent)
+					if ce.Event.Type == "container" && (strings.HasPrefix(ce.Event.Action, "exec_create") || strings.HasPrefix(ce.Event.Action, "exec_start")) {
+						continue
+					}
+					switch ce.Event.Type {
+					case "container":
+						switch ce.Event.Action {
+						case "start":
+							p.StartSupervisor(qm)
+						case "die":
+							p.sMap[ce.Event.Actor.ID].Com <- ce.Event.Action
+						}
 					}
 				}
 			}
-
 		}
 	}
 }
 
 func (p *Plugin) StartSupervisor(qm qtypes.QMsg) {
-	event := qm.Data.(events.Message)
+	ce := qm.Data.(qtypes.ContainerEvent)
 
 	//p.Log("info", fmt.Sprintf("Let's go: container %s started!", event.Actor.Attributes["name"]))
 	s := ContainerSupervisor{
-		CntID: event.Actor.ID,
-		CntName: event.Actor.Attributes["name"],
+		CntID: ce.Event.Actor.ID,
+		CntName: ce.Event.Actor.Attributes["name"],
 		Com: make(chan interface{}),
 		cli: p.cli,
 		qChan: p.QChan,
 	}
-	p.sMap[event.Actor.ID] = s
+	p.sMap[ce.Event.Actor.ID] = s
 	go s.Run()
 }
