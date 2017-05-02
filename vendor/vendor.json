@@ -429,10 +429,10 @@
 			"revisionTime": "2017-04-22T14:16:36Z"
 		},
 		{
-			"checksumSHA1": "iYgQNjrfz+xRLm54/Q+pf9K+KSo=",
+			"checksumSHA1": "6D+iLSncmEgO8dmD0hxFFJ8yycY=",
 			"path": "github.com/qnib/qframe-collector-docker-stats/lib",
-			"revision": "1887f058de3c6eafe74eedba29d8f4c908905d95",
-			"revisionTime": "2017-04-22T14:16:36Z"
+			"revision": "87701834eed8eede0d136537a31eb9b3b0850ec8",
+			"revisionTime": "2017-04-23T14:40:56Z"
 		},
 		{
 			"checksumSHA1": "qm2C95zgQ0loVrtf0sJEXHU/9Yg=",
@@ -441,7 +441,7 @@
 			"revisionTime": "2017-04-22T13:40:14Z"
 		},
 		{
-			"checksumSHA1": "NmMoksTZ8e+Whcyu+eHIPHJMXVU=",
+			"checksumSHA1": "mb89bFKe7WcnJ6wl4hGuR4dC7MU=",
 			"path": "github.com/qnib/qframe-types",
 			"revision": "c92da9acfb090dec147b0fd3ac6d3e495aa54db4",
 			"revisionTime": "2017-04-23T13:39:23Z"
