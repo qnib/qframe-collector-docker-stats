@@ -7,6 +7,7 @@ import (
 	"github.com/zpatrick/go-config"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/qnib/qframe-types"
+	"github.com/qnib/qframe-utils"
 	"github.com/pkg/errors"
 )
 
@@ -112,9 +113,15 @@ func (p *Plugin) Run() {
 	} else {
 		p.Log("info", fmt.Sprintf("Connected to '%s' / v'%s' (SWARM: %s)", info.Name, info.ServerVersion, info.Swarm.LocalNodeState))
 	}
-
 	// List of current containers
 	p.Log("info", fmt.Sprintf("Currently running containers: %d", info.ContainersRunning))
+	// Start listener for each container
+	cnts, _ := p.cli.ListContainers(docker.ListContainersOptions{})
+	for _,cnt := range cnts {
+		p.StartSupervisor(cnt.ID, strings.TrimPrefix(cnt.Names[0], "/"))
+	}
+	inputs := p.GetInputs()
+	srcSuccess, err := p.Cfg.BoolOr(fmt.Sprintf("handler.%s.source-success", p.Name), true)
 	dc := p.QChan.Data.Join()
 	for {
 		select {
@@ -122,6 +129,12 @@ func (p *Plugin) Run() {
 			switch msg.(type) {
 			case qtypes.QMsg:
 				qm := msg.(qtypes.QMsg)
+				if len(inputs) != 0 && ! qutils.IsInput(inputs, qm.Source) {
+					continue
+				}
+				if qm.SourceSuccess != srcSuccess {
+					continue
+				}
 				switch qm.Data.(type){
 				case qtypes.ContainerEvent:
 					ce := qm.Data.(qtypes.ContainerEvent)
@@ -132,7 +145,7 @@ func (p *Plugin) Run() {
 					case "container":
 						switch ce.Event.Action {
 						case "start":
-							p.StartSupervisor(qm)
+							p.StartSupervisorQm(qm)
 						case "die":
 							p.sMap[ce.Event.Actor.ID].Com <- ce.Event.Action
 						}
@@ -143,17 +156,20 @@ func (p *Plugin) Run() {
 	}
 }
 
-func (p *Plugin) StartSupervisor(qm qtypes.QMsg) {
-	ce := qm.Data.(qtypes.ContainerEvent)
 
-	//p.Log("info", fmt.Sprintf("Let's go: container %s started!", event.Actor.Attributes["name"]))
+func (p *Plugin) StartSupervisor(CntID, CntName string) {
 	s := ContainerSupervisor{
-		CntID: ce.Event.Actor.ID,
-		CntName: ce.Event.Actor.Attributes["name"],
+		CntID: CntID,
+		CntName: CntName,
 		Com: make(chan interface{}),
 		cli: p.cli,
 		qChan: p.QChan,
 	}
-	p.sMap[ce.Event.Actor.ID] = s
+	p.sMap[CntID] = s
 	go s.Run()
+}
+
+func (p *Plugin) StartSupervisorQm(qm qtypes.QMsg) {
+	ce := qm.Data.(qtypes.ContainerEvent)
+    p.StartSupervisor(ce.Event.Actor.ID, ce.Event.Actor.Attributes["name"])
 }
