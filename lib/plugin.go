@@ -71,13 +71,8 @@ func (cs ContainerSupervisor) Run() {
 				log.Println(err.Error())
 				return
 			}
-			qm := qtypes.NewQMsg("collector", "docker-stats")
-			qm.Msg = "Send Metrics of "+cs.CntName
-			qm.Data = qtypes.ContainerStats {
-				Stats: stats,
-				Container: cnt[0],
-			}
-			cs.qChan.Data.Send(qm)
+			qs := qtypes.NewContainerStats("docker-stats", stats, cnt[0])
+			cs.qChan.Data.Send(qs)
 		}
 	}
 }

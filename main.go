@@ -9,7 +9,6 @@ import (
 	"github.com/qnib/qframe-types"
 	"github.com/qnib/qframe-collector-docker-stats/lib"
 	"github.com/qnib/qframe-collector-docker-events/lib"
-	"github.com/qnib/qframe-filter-id/lib"
 )
 
 func Run(qChan qtypes.QChan, cfg config.Config, name string) {
@@ -31,9 +30,6 @@ func main() {
 			config.NewStatic(cfgMap),
 		},
 	)
-	// start filter
-	pf := qframe_filter_id.New(qChan, *cfg, "id")
-	go pf.Run()
 	// start docker-events
 	pe, err := qframe_collector_docker_events.New(qChan, *cfg, "events")
 	go pe.Run()
@@ -46,27 +42,24 @@ func main() {
 	go p.Run()
 	dc := qChan.Data.Join()
 	bc := qChan.Back.Join()
+	done := false
 	for {
 		select {
 		case msg := <-dc.Read:
-			qm := msg.(qtypes.QMsg)
-			if qm.Source == "docker-stats" {
-				switch qm.Data.(type) {
+			switch msg.(type) {
 				case qtypes.ContainerStats:
-					cntStats := qm.Data.(qtypes.ContainerStats)
-					cs := qtypes.NewCpuStats(cntStats.Stats)
-					fmt.Printf("%v\n", cs)
-				default:
-					fmt.Printf("DATA #### Received: %s\n", qm.Msg)
-					break
-				}
-			} else {
-				fmt.Printf("DATA # Received [%s]: %s\n", qm.Source, qm.Msg)
-				continue
+					qs := msg.(qtypes.ContainerStats)
+					if qs.IsLastSource("docker-stats") {
+						fmt.Printf("%v\n", qs.Stats)
+						done = true
+					}
 			}
 		case msg := <-bc.Read:
 			qm := msg.(qtypes.QMsg)
 			fmt.Printf("BACK # Received [%s]: %s\n", qm.Source, qm.Msg)
+		}
+		if done {
+			break
 		}
 	}
 }
