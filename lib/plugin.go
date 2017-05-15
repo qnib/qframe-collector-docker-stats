@@ -117,34 +117,30 @@ func (p *Plugin) Run() {
 		p.StartSupervisor(cnt.ID, strings.TrimPrefix(cnt.Names[0], "/"))
 	}
 	inputs := p.GetInputs()
-	srcSuccess, err := p.Cfg.BoolOr(fmt.Sprintf("handler.%s.source-success", p.Name), true)
+	srcSuccess := p.CfgBoolOr("source-success", true)
 	dc := p.QChan.Data.Join()
 	for {
 		select {
 		case msg := <-dc.Read:
 			switch msg.(type) {
-			case qtypes.QMsg:
-				qm := msg.(qtypes.QMsg)
-				if len(inputs) != 0 && ! qutils.IsInput(inputs, qm.Source) {
+			case qtypes.ContainerEvent:
+				ce := msg.(qtypes.ContainerEvent)
+				if len(inputs) != 0 && ! qutils.IsInput(inputs, ce.GetLastSource()) {
 					continue
 				}
-				if qm.SourceSuccess != srcSuccess {
+				if ce.SourceSuccess != srcSuccess {
 					continue
 				}
-				switch qm.Data.(type){
-				case qtypes.ContainerEvent:
-					ce := qm.Data.(qtypes.ContainerEvent)
-					if ce.Event.Type == "container" && (strings.HasPrefix(ce.Event.Action, "exec_create") || strings.HasPrefix(ce.Event.Action, "exec_start")) {
-						continue
-					}
-					switch ce.Event.Type {
-					case "container":
-						switch ce.Event.Action {
-						case "start":
-							p.StartSupervisorQm(qm)
-						case "die":
-							p.sMap[ce.Event.Actor.ID].Com <- ce.Event.Action
-						}
+				if ce.Event.Type == "container" && (strings.HasPrefix(ce.Event.Action, "exec_create") || strings.HasPrefix(ce.Event.Action, "exec_start")) {
+					continue
+				}
+				switch ce.Event.Type {
+				case "container":
+					switch ce.Event.Action {
+					case "start":
+						p.StartSupervisorCe(ce)
+					case "die":
+						p.sMap[ce.Event.Actor.ID].Com <- ce.Event.Action
 					}
 				}
 			}
@@ -169,3 +165,9 @@ func (p *Plugin) StartSupervisorQm(qm qtypes.QMsg) {
 	ce := qm.Data.(qtypes.ContainerEvent)
     p.StartSupervisor(ce.Event.Actor.ID, ce.Event.Actor.Attributes["name"])
 }
+
+func (p *Plugin) StartSupervisorCe(ce qtypes.ContainerEvent) {
+	p.StartSupervisor(ce.Event.Actor.ID, ce.Event.Actor.Attributes["name"])
+}
+
+
