@@ -14,6 +14,7 @@ import (
 const (
 	version = "0.1.0"
 	pluginTyp = "collector"
+	pluginPkg = "docker-stats"
 )
 
 // struct to keep info and channels to goroutine
@@ -86,7 +87,7 @@ type Plugin struct {
 func New(qChan qtypes.QChan, cfg config.Config, name string) (Plugin, error) {
 	var err error
 	p := Plugin{
-		Plugin: qtypes.NewNamedPlugin(qChan, cfg, pluginTyp, name, version),
+		Plugin: qtypes.NewNamedPlugin(qChan, cfg, pluginTyp, pluginPkg, name, version),
 		sMap: map[string]ContainerSupervisor{},
 	}
 	return p, err
