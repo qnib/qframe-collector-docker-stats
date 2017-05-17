@@ -11,7 +11,7 @@ import (
 	"github.com/qnib/qframe-collector-docker-events/lib"
 )
 
-func Run(qChan qtypes.QChan, cfg config.Config, name string) {
+func Run(qChan qtypes.QChan, cfg *config.Config, name string) {
 	p, _ := qframe_collector_docker_stats.New(qChan, cfg, name)
 	p.Run()
 }
@@ -31,10 +31,10 @@ func main() {
 		},
 	)
 	// start docker-events
-	pe, err := qframe_collector_docker_events.New(qChan, *cfg, "events")
+	pe, err := qframe_collector_docker_events.New(qChan, cfg, "events")
 	go pe.Run()
 	// start docker-stats
-	p, err := qframe_collector_docker_stats.New(qChan, *cfg, "stats")
+	p, err := qframe_collector_docker_stats.New(qChan, cfg, "stats")
 	if err != nil {
 		log.Printf("[EE] Failed to create collector: %v", err)
 		return

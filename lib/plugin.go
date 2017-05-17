@@ -84,7 +84,7 @@ type Plugin struct {
 	sMap map[string]ContainerSupervisor
 }
 
-func New(qChan qtypes.QChan, cfg config.Config, name string) (Plugin, error) {
+func New(qChan qtypes.QChan, cfg *config.Config, name string) (Plugin, error) {
 	var err error
 	p := Plugin{
 		Plugin: qtypes.NewNamedPlugin(qChan, cfg, pluginTyp, pluginPkg, name, version),
