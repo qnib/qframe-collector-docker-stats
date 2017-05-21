@@ -7,7 +7,6 @@ import (
 	"github.com/zpatrick/go-config"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/qnib/qframe-types"
-	"github.com/qnib/qframe-utils"
 	"github.com/pkg/errors"
 )
 
@@ -111,27 +110,26 @@ func (p *Plugin) Run() {
 	}
 	// List of current containers
 	p.Log("info", fmt.Sprintf("Currently running containers: %d", info.ContainersRunning))
+	// Dispatch Msg Count
+	go p.DispatchMsgCount()
 	// Start listener for each container
 	cnts, _ := p.cli.ListContainers(docker.ListContainersOptions{})
 	for _,cnt := range cnts {
 		p.StartSupervisor(cnt.ID, strings.TrimPrefix(cnt.Names[0], "/"))
 	}
-	inputs := p.GetInputs()
-	srcSuccess := p.CfgBoolOr("source-success", true)
 	dc := p.QChan.Data.Join()
+	p.MsgCount["execEvent"] = 0
 	for {
 		select {
 		case msg := <-dc.Read:
 			switch msg.(type) {
 			case qtypes.ContainerEvent:
 				ce := msg.(qtypes.ContainerEvent)
-				if len(inputs) != 0 && ! qutils.IsInput(inputs, ce.GetLastSource()) {
+				if p.StopProcessingCntEvent(ce, false) {
 					continue
 				}
-				if ce.SourceSuccess != srcSuccess {
-					continue
-				}
-				if ce.Event.Type == "container" && (strings.HasPrefix(ce.Event.Action, "exec_create") || strings.HasPrefix(ce.Event.Action, "exec_start")) {
+				if ce.Event.Type == "container" && strings.HasPrefix(ce.Event.Action, "exec_") {
+					p.MsgCount["execEvent"]++
 					continue
 				}
 				switch ce.Event.Type {
