@@ -28,6 +28,15 @@ type ContainerSupervisor struct {
 	qChan 	qtypes.QChan
 }
 
+func SplitLabels(labels []string) map[string]string {
+	res := map[string]string{}
+	for _, label := range labels {
+		tupel := strings.Split(label, "=")
+		res[tupel[0]] = tupel[1]
+	}
+	return res
+}
+
 func (cs ContainerSupervisor) Run() {
 	log.Printf("[II] Start listener for: '%s' [%s]", cs.CntName, cs.CntID)
 	// TODO: That is not realy straight forward...
@@ -37,6 +46,8 @@ func (cs ContainerSupervisor) Run() {
 	df := docker.ListContainersOptions{
 		Filters: filter,
 	}
+	info, _ := cs.cli.Info()
+	engineLabels := SplitLabels(info.Labels)
 	cnt, _ := cs.cli.ListContainers(df)
 	if len(cnt) != 1 {
 		log.Printf("[EE] Could not found excatly one container with id '%s'", cs.CntID)
@@ -72,6 +83,9 @@ func (cs ContainerSupervisor) Run() {
 				return
 			}
 			qs := qtypes.NewContainerStats("docker-stats", stats, cnt[0])
+			for k, v := range engineLabels {
+				qs.Container.Labels[k] = v
+			}
 			cs.qChan.Data.Send(qs)
 		}
 	}
